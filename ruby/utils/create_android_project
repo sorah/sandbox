@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+# vim: filetype=ruby
+
+abort "usage: #{File.basename(__FILE__)} package activity [PATH] [TARGET]" if ARGV.empty? || ARGV[0].nil? || ARGV[1].nil?
+
+package  = ARGV[0]
+activity = ARGV[1]
+path     = ARGV[2] || package.gsub(/^.+\./,'')
+target   = ARGV[3] || 1
+
+system 'android', 'create', 'project',
+         '--target',   target.to_s,
+         '--path',     path,
+         '--activity', activity,
+         '--package',  package
+

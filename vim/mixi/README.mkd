@@ -1,0 +1,56 @@
+# mixi.vim - yet another mixi.vim
+
+## How to install
+
+copy mixi.rb and mixi.vim to ~/.vim/plugin .
+
+## How to use
+
+### New post
+
+    :Mixi
+
+* Title is line 1. But if you use publish-range, title is line 2.
+
+### Post to mixi
+
+    :w
+    or
+    :MixiPost
+
+### Publish Range
+
+* put this to line 1.
+
+        publish-range: RANGE
+
+* Title is line 2.
+* RANGE is
+
+   * default                            / mixi default setting
+   * open, all, public                  / publish to all mixi user
+   * close, me\_only, not\_public       / don't publish         (me)
+   * mymixi, friend                     / publish to friend.    (me-friend)
+   * 2mymixis, 2friends, friend\_friend / publish to 2 friends. (me-friend-friend)
+
+
+
+### Require
+
+* gem wsse (`gem install wsse`) or mechanize (`gem install mechanize`)
+* ruby (not `+ruby`)
+* vim
+
+### ChangeLog
+
+* Version 1
+
+  * Supported mixi diary.
+
+* Version 1.5
+
+  * Supported `:w`
+
+* Version 2
+
+  * Supported publish range. (open,close,friend,etc...)

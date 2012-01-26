@@ -1,0 +1,11 @@
+#!/usr/bin/env ruby
+# vim: filetype=ruby
+
+abort "usage: #{File.basename(__FILE__)} unsigned signed" unless ARGV.size < 2
+
+##CHANGE THIS
+KEYSTORE       = "~/.android/sorah.keystore"
+KEYSTORE_SHORT = "sorah"
+
+system "jarsigner", "-keystore", KEYSTORE, "-verbose", ARGV[0], KEYSTORE_SHORT
+system "zipalign",  "-v",        ARGV[0],  ARGV[1]

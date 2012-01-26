@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+# vim: filetype=ruby
+
+puts "hello world"
