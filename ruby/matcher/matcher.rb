@@ -1,4 +1,7 @@
-# This is a public domain
+# matcher.rb - simple flexible matcher
+
+# Author: Shota Fukumori (sora_h)
+# License: Public domain
 
 class Matcher
   DEFAULT_KEY = :foo
@@ -46,7 +49,17 @@ class Matcher
             raise TypeError
           end
         else
-          value = [value] unless value.kind_of?(Array)
+          case value
+          when Hash
+            if value.has_key?(:raw) && value.size == 1
+              value = [value[:raw]]
+            else
+              value = [value]
+            end
+          when Array
+          else
+            value = [value]
+          end
 
           # TODO: hierarchical hash
           return value.__send__(method) do |cond|

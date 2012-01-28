@@ -1,4 +1,7 @@
-# This is a public domain
+# matcher_spec.rb - spec of matcher.rb
+
+# Author: Shota Fukumori (sora_h)
+# License: Public domain
 
 require 'rspec'
 require_relative './matcher'
@@ -163,23 +166,29 @@ describe Matcher do
         @matcher.match(any: {foo: "bar", any: {foo: "foo", bar: "foo"}}).should be_a_kind_of(Array)
       end
 
-      describe 'returns a Hash:' do
-        it 'has only one Hash in the last of array' do
-          r = @matcher.match(all: [{foo: "bar"}, {bar: "foo"}])
-          r.should be_a_kind_of(Array)
-          r.size.should == 1
-          r.last.should be_a_kind_of(Hash)
-          r.last[:foo].should == "bar"
-          r.last[:bar].should == "foo"
+      it "checks equal to specified value if the hash only has :raw key" do
+        matcher = Matcher.new(foo: [1,2,3])
+        matcher.match(foo: {raw: [1,2,3]}).should be_a_kind_of(Array)
+        matcher.match(foo: {raw: [1,2,3], foo: "bar"}).should be_false
+      end
+    end
 
-          @matcher.match(all: ["bar", {foo: "bar"}, {bar: "foo"}]).last.should be_a_kind_of(Hash)
-        end
+    describe 'returns a Hash:' do
+      it 'has only one Hash in the last of array' do
+        r = @matcher.match(all: [{foo: "bar"}, {bar: "foo"}])
+        r.should be_a_kind_of(Array)
+        r.size.should == 1
+        r.last.should be_a_kind_of(Hash)
+        r.last[:foo].should == "bar"
+        r.last[:bar].should == "foo"
 
-        it 'has Array for a value when a key has multiple matches' do
-          r = @matcher.match(all: {foo: [/b/,/a/,/r/]})
-          r.last[:foo].should be_a_kind_of(Array)
-          r.last[:foo].size.should == 3
-        end
+        @matcher.match(all: ["bar", {foo: "bar"}, {bar: "foo"}]).last.should be_a_kind_of(Hash)
+      end
+
+      it 'has Array for a value when a key has multiple matches' do
+        r = @matcher.match(all: {foo: [/b/,/a/,/r/]})
+        r.last[:foo].should be_a_kind_of(Array)
+        r.last[:foo].size.should == 3
       end
     end
   end
