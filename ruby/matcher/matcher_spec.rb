@@ -43,7 +43,7 @@ describe Matcher do
     end
 
     it 'accepts Regexp to check match with default key' do
-      @matcher.match(/ba/).should be_true
+      @matcher.match(/ba/).should be_a_kind_of(Array)
       @matcher.match(/bo/).should be_false
     end
 
@@ -54,19 +54,24 @@ describe Matcher do
 
     it 'accepts other to check equal with the default key' do
       @matcher.match("bar").should be_a_kind_of(Array)
+      @matcher.match("bar").first.should == "bar"
       @matcher.match("baa").should be_false
     end
 
-    it 'accepts other and return empty array' do
+    it 'accepts other and return array' do
       @matcher.match("bar").should be_a_kind_of(Array)
-      @matcher.match("bar").should be_empty
+      @matcher.match("bar").should_not be_empty
+      @matcher.match("bar").first.should == "bar"
     end
 
     describe 'with multiple arguments' do
       it 'checks is any conditions in argumens is true' do
         @matcher.match("baa", "bar").should be_a_kind_of(Array)
+        @matcher.match("baa", "bar").first.should == "bar"
         @matcher.match("baa", /b/).should be_a_kind_of(Array)
+        @matcher.match("baa", /b/).first.should be_a_kind_of(MatchData)
         @matcher.match(/fo/, /ba/).should be_a_kind_of(Array)
+        @matcher.match("baa", "bar").first.should == "bar"
         @matcher.match(/far/, /baz/).should be_false
       end
     end
@@ -81,35 +86,51 @@ describe Matcher do
 
     it 'checks is any conditions in array is true' do
       @matcher.match(["baa", "bar"]).should be_a_kind_of(Array)
+      @matcher.match(["baa", "bar"]).first.should == "bar"
       @matcher.match(["baa", /b/]).should be_a_kind_of(Array)
+      @matcher.match(["baa", /b/]).first.should be_a_kind_of(MatchData)
       @matcher.match([/fo/, /ba/]).should be_a_kind_of(Array)
+      @matcher.match([/fo/, /ba/]).first.should be_a_kind_of(MatchData)
       @matcher.match(["baa", "baz"]).should be_false
     end
 
     describe 'with Hash' do
       it "checks is any key&value true" do
         @matcher.match(foo: "bar", bar: "bar").should be_a_kind_of(Array)
+        @matcher.match(foo: "bar", bar: "bar").first.should == {foo: "bar"}
         @matcher.match(foo: /b/, bar: "bar").should be_a_kind_of(Array)
+        @matcher.match(foo: /b/, bar: "bar").first.keys[0].should == :foo
+        @matcher.match(foo: /b/, bar: "bar").first[:foo].should be_a_kind_of(MatchData)
         @matcher.match(foo: /b/, bar: /ba/).should be_a_kind_of(Array)
+        @matcher.match(foo: /b/, bar: /ba/).first.keys[0].should == :foo
+        @matcher.match(foo: /b/, bar: /ba/).first[:foo].should be_a_kind_of(MatchData)
         @matcher.match(foo: /f/, bar: /ba/).should be_false
         @matcher.match(foo: "b", bar: /ba/).should be_false
       end
 
       it "checks does specified value (Regexp) matchs to obj[key]" do
         @matcher.match(foo: /b/).should be_a_kind_of(Array)
+        @matcher.match(foo: /b/).first.should be_a_kind_of(Hash)
+        @matcher.match(foo: /b/).first[:foo].should be_a_kind_of(MatchData)
         @matcher.match(foo: /f/).should be_false
       end
 
       it "checks does obj[key] equals to specified value (if value is not Regexp)" do
         @matcher.match(bar: "foo").should be_a_kind_of(Array)
+        @matcher.match(bar: "foo").first.should be_a_kind_of(Hash)
+        @matcher.match(bar: "foo").first[:bar].should  == "foo"
         @matcher.match(bar: "bar").should be_false
       end
 
       it 'checks is any conditions in specified value (Array) true' do
         @matcher.match(foo: ["foo", "bar"]).should be_a_kind_of(Array)
+        @matcher.match(foo: ["foo", "bar"]).first.should be_a_kind_of(Hash)
+        @matcher.match(foo: ["foo", "bar"]).first[:foo].should == "bar"
         @matcher.match(foo: ["foo", /baz/]).should be_false
         @matcher.match(foo: ["bar", /b/]).should be_a_kind_of(Array)
-        @matcher.match(foo: ["bar", /b/]).size.should == 0
+        @matcher.match(foo: ["bar", /b/]).first.should be_a_kind_of(Hash)
+        @matcher.match(foo: ["bar", /b/]).first[:foo].should == "bar"
+        @matcher.match(foo: ["bar", /b/]).size.should == 1
         @matcher.match(bar: ["bar", "baz"]).should be_false
       end
 
@@ -128,6 +149,23 @@ describe Matcher do
         @matcher.match(any: {foo: "foo", bar: "foo"}).should be_false
         @matcher.match(any: {foo: "bar", any: {foo: "foo", bar: "foo"}}).should be_a_kind_of(Array)
       end
+
+      describe 'returns a Hash:' do
+        it 'has only one Hash in the last of array' do
+          @matcher.match(all: [{foo: "bar"}, {bar: "foo"}]).should be_a_kind_of(Array)
+          @matcher.match(all: [{foo: "bar"}, {bar: "foo"}]).size.should == 1
+          @matcher.match(all: [{foo: "bar"}, {bar: "foo"}]).last.should be_a_kind_of(Hash)
+          @matcher.match(all: [{foo: "bar"}, {bar: "foo"}]).last[:foo].should == "bar"
+          @matcher.match(all: [{foo: "bar"}, {bar: "foo"}]).last[:bar].should == "foo"
+          @matcher.match(all: ["bar", {foo: "bar"}, {bar: "foo"}]).last.should be_a_kind_of(Hash)
+        end
+
+        it 'has Array for a value when a key has multiple matches' do
+          @matcher.match(all: {foo: [/b/,/a/,/r/]}).last[:foo].should be_a_kind_of(Array)
+          @matcher.match(all: {foo: [/b/,/a/,/r/]}).last[:foo].size.should == 3
+        end
+      end
+
     end
   end
 end

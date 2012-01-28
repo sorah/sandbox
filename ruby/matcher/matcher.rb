@@ -9,7 +9,8 @@ class Matcher
   end
 
   def match(*args)
-    regexps = []
+    matchs = []
+    mash = {}
     la, lb = ->(conds, method = :any?) do
       conds.__send__(method) do |cond|
         case cond
@@ -18,9 +19,9 @@ class Matcher
         when Hash
           lb[cond]
         when Regexp
-          @obj[@default].kind_of?(String) && (regexps << @obj[@default].match(cond))[-1]
+          @obj[@default].kind_of?(String) && (matchs << @obj[@default].match(cond))[-1]
         else
-          @obj[@default] == cond
+          @obj[@default] == cond && (matchs << cond)[-1]
         end
       end
     end, ->(hash, method = :any?) do
@@ -48,14 +49,27 @@ class Matcher
           value = [value] unless value.kind_of?(Array)
 
           # TODO: hierarchical hash
-          return value.any? do |cond|
-            cond.kind_of?(Regexp) ? (regexps << @obj[key].match(cond)).last \
-                                  : @obj[key] == cond
+          return value.__send__(method) do |cond|
+            r = cond.kind_of?(Regexp) ? @obj[key].match(cond) \
+                                      : (@obj[key] == cond && cond)
+            if r && mash.has_key?(key)
+              unless mash[key].kind_of?(Array)
+                mash[key] = [mash[key]]
+              end
+              mash[key] << r
+            elsif r; mash[key] = r
+            end
+            r
           end
         end
       end
     end
-    la[args] && regexps.compact
+
+    if la[args]
+      r = matchs.compact
+      mash.empty? ? r : (r << mash)
+    else; false
+    end
   end
 
   def match?(*args)
@@ -95,4 +109,12 @@ if __FILE__ == $0
   p matcher.match?(any: [{foo: "foo"}, {bar: "foo"}]) #=> true
   p matcher.match?(any: {foo: "foo", bar: "foo"}) #=> false
   p matcher.match?(any: {foo: "bar", any: {foo: "foo", bar: "foo"}}) #=> true
+
+  puts "---"
+
+  p matcher.match(foo: /b/, bar: /ba/)
+  p matcher.match(foo: ["foo", /b/])
+  p matcher.match(/fo/, /ba/)
+  p matcher.match(/fo/)
+  p matcher.match("foo", "bar")
 end
