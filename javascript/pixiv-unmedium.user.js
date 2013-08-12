@@ -6,9 +6,18 @@
 // @run-at document-end
 // ==/UserScript==
 
-var img = document.querySelector(".works_display img")
-img.setAttribute('height', img.height)
-img.setAttribute('width', img.width)
-img.src = img.src.replace(/_m/, '');
+var img = document.querySelector(".works_display img");
+
+var unmedium = function () {
+  img.setAttribute('height', img.height);
+  img.setAttribute('width', img.width);
+  img.src = img.src.replace(/_m/, '');
+};
+
+if (img.complete) {
+  unmedium();
+} else {
+  img.onload = unmedium;
+}
 
 document.querySelector(".works_display").innerHTML += "<p>" + img.src + "</p>";
