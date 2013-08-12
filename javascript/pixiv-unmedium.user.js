@@ -11,6 +11,7 @@ var img = document.querySelector(".works_display img");
 var unmedium = function () {
   img.setAttribute('height', img.height);
   img.setAttribute('width', img.width);
+  img.onload = null;
   img.src = img.src.replace(/_m/, '');
   document.querySelector(".works_display").innerHTML += "<p>" + img.src + "</p>";
 };
