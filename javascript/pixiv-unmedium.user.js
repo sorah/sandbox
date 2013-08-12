@@ -6,19 +6,21 @@
 // @run-at document-end
 // ==/UserScript==
 
-var img = document.querySelector(".works_display img");
+var link = document.querySelector(".works_display a");
+if (! link.href.match(/mode=manga/)) {
+  var img = document.querySelector(".works_display img");
 
-var unmedium = function () {
-  img.setAttribute('height', img.height);
-  img.setAttribute('width', img.width);
-  img.onload = null;
-  img.src = img.src.replace(/_m/, '');
-  document.querySelector(".works_display").innerHTML += "<p>" + img.src + "</p>";
-};
+  var unmedium = function () {
+    img.setAttribute('height', img.height);
+    img.setAttribute('width', img.width);
+    img.onload = null;
+    img.src = img.src.replace(/_m/, '');
+    document.querySelector(".works_display").innerHTML += "<p>" + img.src + "</p>";
+  };
 
-if (img.complete) {
-  unmedium();
-} else {
-  img.onload = unmedium;
+  if (img.complete) {
+    unmedium();
+  } else {
+    img.onload = unmedium;
+  }
 }
-
