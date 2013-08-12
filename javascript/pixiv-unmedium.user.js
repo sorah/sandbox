@@ -12,6 +12,7 @@ var unmedium = function () {
   img.setAttribute('height', img.height);
   img.setAttribute('width', img.width);
   img.src = img.src.replace(/_m/, '');
+  document.querySelector(".works_display").innerHTML += "<p>" + img.src + "</p>";
 };
 
 if (img.complete) {
@@ -20,4 +21,3 @@ if (img.complete) {
   img.onload = unmedium;
 }
 
-document.querySelector(".works_display").innerHTML += "<p>" + img.src + "</p>";
