@@ -250,7 +250,7 @@ class Runner
     failed_days.flatten.each(&run_commit)
 
     puts "===== running succeeded days"
-    update_status[succeed_days.flatten, 'commits in succeeded days']
+    update_status[succeed_days.flatten, '(final) commits in succeeded days']
     succeed_days.flatten.each(&run_commit)
   end
 
