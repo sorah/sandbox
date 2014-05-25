@@ -175,10 +175,19 @@ class Runner
   def run
     weeks = @git.commits_by_week(@range)
 
+    update_status = proc do |queue, phase|
+      @total = weeks.flatten.size
+      @phase = phase if phase
+      @queue_size = queue ? queue.size : 0
+      @queue_done = 0
+    end
+
     failed_weeks = []
     succeed_weeks = []
 
+    update_status[weeks, 'all weeks']
     weeks.each do |week|
+      @queue_done += 1
       puts "===== WEEK RUN #{week.first[:committed_at]} ... #{week.last[:committed_at]}"
       trial = try(week.last)
       if trial == :failure
@@ -193,7 +202,8 @@ class Runner
     failed_days = []
     succeed_days = []
 
-    (failed_weeks + succeed_weeks).each do |week|
+    run_week = proc do |week|
+      @queue_done += 1
       days = commits_slice_into_day(week)
 
       stat = summary[week.last[:hash]]
@@ -212,14 +222,36 @@ class Runner
       end
     end
 
+    puts "===== running failed weeks"
+    update_status[failed_weeks, 'days in failed weeks']
+    failed_weeks.each(&run_week)
 
-    (failed_days + succeed_days).flatten.each do |commit|
+    run_commit = proc do |commit|
+      @queue_done += 1
       stat = summary[commit[:hash]]
       statstr = stat == 'failure' ? "FAIL " : ""
 
       puts "===== #{statstr}COMMIT RUN #{commit[:committed_at]}"
       trial = try(commit)
     end
+
+    puts "===== running failed days"
+    update_status[failed_days.flatten, 'commits in failed days']
+    failed_days.flatten.each(&run_commit)
+
+
+    failed_days = []
+    puts "===== running succeeded weeks"
+    update_status[succeed_weeks, 'days in succeeded weeks']
+    succeed_weeks.each(&run_week)
+
+    puts "===== running failed days"
+    update_status[failed_days.flatten, 'commits in failed days']
+    failed_days.flatten.each(&run_commit)
+
+    puts "===== running succeeded days"
+    update_status[succeed_days.flatten, 'commits in succeeded days']
+    succeed_days.flatten.each(&run_commit)
   end
 
   def try(commit)
@@ -239,12 +271,18 @@ class Runner
         "AUTOTRY_TIMESTAMP" => commit[:committed_at].to_i.to_s,
         "AUTOTRY_RESULT" => trial.status.to_s,
         "AUTOTRY_LOG" => trial.logfile,
+        "AUTOTRY_PROG_PHASE" => @phase || "unknown phase",
+        "AUTOTRY_PROG_TOTAL_COMMITS" => @total.to_s,
+        "AUTOTRY_PROG_DONE_COMMITS" => @done.to_s,
+        "AUTOTRY_PROG_QUEUE_TOTAL" => @queue_size.to_s,
+        "AUTOTRY_PROG_QUEUE_DONE" => @queue_done.to_s,
       }
       IO.popen([env, 'bash', '-c', @reporter], 'r') do |io|
         puts io.read
       end
     end
 
+    @done = summary.size
     trial.status
   end
 
