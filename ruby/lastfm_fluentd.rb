@@ -30,10 +30,10 @@ p lastrun: last, latest: latest_mark
 exit if latest_mark.to_s == last
 
 logger = Fluent::Logger::FluentLogger.new(ENV['LF_TAG_PREFIX'], host: ENV['FLUENTD_HOST'] || 'localhost', port: (ENV['FLUENTD_PORT'] || 24224).to_i)
-message = "playing: #{name} (#{artist}) - #{album}"
+message = "♫▶︎ #{name} (#{artist}) - #{album}"
 
 if message.size > 140 || album.nil? || album.empty?
-  message = "playing: #{name} (#{artist})"
+  message = "♫▶︎ #{name} (#{artist})"
 end
 
 logger.post(*[ENV['LF_TAG'] || 'lastfm',
