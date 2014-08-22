@@ -12,16 +12,24 @@ last = if File.exist?(marker)
 
 tracks = Nokogiri::XML(open("http://ws.audioscrobbler.com/1.0/user/#{user}/recenttracks.xml", 'r', &:read))
 latest = tracks.search('track').first
-latest_date = latest.at('date')['uts']
-
-exit if latest_date.to_s == last
-
-logger = Fluent::Logger::FluentLogger.new(ENV['LF_TAG_PREFIX'], host: ENV['FLUENTD_HOST'] || 'localhost', port: (ENV['FLUENTD_PORT'] || 24224).to_i)
 
 name = latest.at('name').inner_text
 artist = latest.at('artist').inner_text
 album = latest.at('album').inner_text
 
+latest_mark = case
+              when latest.at('url') && !latest.at('url').inner_text.empty?
+                latest.at('url').inner_text
+              when latest.at('date') && latest.at('date')['uts']
+                latest.at('date')['uts']
+              else
+                [name, artist, album].join("\t")
+              end
+
+p lastrun: last, latest: latest_mark
+exit if latest_mark.to_s == last
+
+logger = Fluent::Logger::FluentLogger.new(ENV['LF_TAG_PREFIX'], host: ENV['FLUENTD_HOST'] || 'localhost', port: (ENV['FLUENTD_PORT'] || 24224).to_i)
 message = "playing: #{name} (#{artist}) - #{album}"
 
 if message.size > 140 || album.nil? || album.empty?
@@ -35,4 +43,4 @@ logger.post(*[ENV['LF_TAG'] || 'lastfm',
   album: album,
 ].tap{ |_| p _ })
 
-File.write marker, "#{latest_date}\n"
+File.write marker, "#{latest_mark}\n"
