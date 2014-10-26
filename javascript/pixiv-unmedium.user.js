@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name pixiv-unmedium
 // @namespace sorah.jp
-// @match http://www.pixiv.net/member_illust.php?mode=medium&illust_id=*
-// @match http://www.pixiv.net/member_illust.php?mode=manga&illust_id=*
-// @match https://www.pixiv.net/member_illust.php?mode=medium&illust_id=*
-// @match https://www.pixiv.net/member_illust.php?mode=manga&illust_id=*
+// @match https://www.pixiv.net/member_illust.php
+// @match http://www.pixiv.net/member_illust.php
+// @match https://www.pixiv.net/member_illust.php?*
+// @match http://www.pixiv.net/member_illust.php?*
 // @run-at document-end
 // ==/UserScript==
 
@@ -16,7 +16,12 @@ if (link && !link.href.match(/mode=manga/)) {
     img.setAttribute('height', img.height);
     img.setAttribute('width', img.width);
     img.onload = null;
-    img.src = img.src.replace(/_m/, '');
+    if (img.src.match(/img-master/)) {
+      img.src = "http://i3.pixiv.net/img-original/img/" + img.src.match(/\/img\/(.+)$/)[1];
+      img.src = img.src.replace(/_master\d+/, '');
+    } else {
+      img.src = img.src.replace(/_m/, '');
+    }
     document.querySelector(".works_display").innerHTML += "<p>" + img.src + "</p>";
   };
 
