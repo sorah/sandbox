@@ -16,13 +16,14 @@ if (link && !link.href.match(/mode=manga/)) {
     img.setAttribute('height', img.height);
     img.setAttribute('width', img.width);
     img.onload = null;
+    var originalSrc = img.src;
     if (img.src.match(/img-master/)) {
       img.src = "http://i3.pixiv.net/img-original/img/" + img.src.match(/\/img\/(.+)$/)[1];
       img.src = img.src.replace(/_master\d+/, '');
     } else {
       img.src = img.src.replace(/_m/, '');
     }
-    document.querySelector(".works_display").innerHTML += "<p>" + img.src + "</p>";
+    document.querySelector(".works_display").innerHTML += "<p>" + originalSrc + "<br>" + img.src + "</p>";
   };
 
   if (img.complete) {
