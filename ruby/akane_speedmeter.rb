@@ -7,10 +7,11 @@ while _ = $stdin.gets.chomp
   time = Time.parse(_.match(/^\[(.+?)\]/)[1])
 
   lasts.each_key do |int|
-    last = lasts[int];
-    counters[int] += 1;
+    last = lasts[int]
+    counters[int] += 1
+
     if prev <= time && int < (time - (last || Time.at(1)))
-      speed[int] = counters[int];
+      speed[int] = counters[int]
       puts "#{time.strftime("%H:%M:%S")} #{speed.map{|i,c| "#{c}/#{i}sec" }.join(", ")}"
       lasts[int] = time
       counters[int] = 0
