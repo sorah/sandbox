@@ -19,11 +19,11 @@ loop do
     if text.size > 135
       text = "#{prefix}Now Playing: #{now['Title']}"
     end
+    tw.update(text) if prev
     prev = now
     pret = t
     t = Time.now
     puts "#{t.to_s}: #{text} (#{t-(pret || Time.now)})"
-    tw.update(text)
   end
   sleep 1
 end
