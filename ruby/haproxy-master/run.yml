@@ -1,0 +1,7 @@
+:command: ["haproxy", "-f", "haproxy.cfg"]
+:check: ["haproxy", "-c", "-f", "haproxy.cfg"]
+
+:ports:
+  30:
+    host: localhost
+    port: 8080
