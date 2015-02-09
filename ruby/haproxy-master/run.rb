@@ -177,8 +177,9 @@ active_pid = spawn_proxy
 loop do
   break if shutting_down
 
+  wpid = active_pid
+
   begin
-    wpid = active_pid
     pid, status = Process.waitpid2(wpid)
     $stderr.puts "---- active pid #{pid} stopped: #{status.inspect}"
   rescue Errno::ECHILD
