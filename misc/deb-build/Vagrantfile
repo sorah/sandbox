@@ -1,0 +1,66 @@
+# vi: set ft=ruby
+VAGRANTFILE_API_VERSION = "2"
+APT_KEYID = "..."
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.box = "trusty64"
+  config.vm.box_url = "https://..."
+
+  config.vm.define :default do
+    config.vm.provider "virtualbox" do |v|
+      v.memory = 1024
+      v.cpus = 3
+    end
+
+    config.vm.provision "shell", inline: <<-EOC
+cat <<-'EOF' >/etc/apt/sources.list.d/my.list
+deb https://...
+deb-src https://...
+EOF
+
+cat <<-'EOF' > /etc/#{APT_KEYID}.txt
+#{`gpg -a --export #{APT_KEYID}`}
+EOF
+apt-key add /tmp/#{APT_KEYID}.txt
+
+if [ ! -d /home/vagrant/.ssh ]; then
+  mkdir -p /home/vagrant/.ssh
+  chown vagrant:vagrant /home/vagrant/.ssh
+  chmod 0700 /home/vagrant/.ssh
+fi
+if [ ! -e /home/vagrant/.ssh/config ]; then
+  cat <<-'EOF' > /home/vagrant/.ssh/config
+#{File.read(File.expand_path('~/.ssh/config'))}
+EOF
+fi
+
+apt-get update
+apt-get install -y mini-dinstall dh-make devscripts build-essential
+apt-get install -y vim-nox
+apt-get install -y git git-buildpackage
+apt-get install -y ruby2.1
+
+gem2.1 install octokit --no-ri --no-rdoc
+
+grep -q 'bashrc.local' /home/vagrant/.bashrc || echo 'source /vagrant/bashrc.local' >> /home/vagrant/.bashrc
+grep -q 'bashrc.personal' /home/vagrant/.bashrc || echo '[ -e /home/vagrant/.bashrc.personal ] && source /home/vagrant/.bashrc.personal' >> /home/vagrant/.bashrc
+    EOC
+  end
+
+  config.vm.define :tester do
+    config.vm.provision "shell", inline: <<-EOC
+cat <<-'EOF' >/etc/apt/sources.list.d/my.list
+deb https://...
+deb-src https://...
+EOF
+
+cat <<-'EOF' > /etc/#{APT_KEYID}.txt
+#{`gpg -a --export #{APT_KEYID}`}
+EOF
+apt-key add /tmp/#{APT_KEYID}.txt
+
+apt-get update
+apt-get install -y vim-nox
+    EOC
+  end
+end

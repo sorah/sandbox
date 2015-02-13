@@ -1,0 +1,119 @@
+#!/usr/bin/ruby
+if ARGV.size < 1
+  abort "Usage: #{File.basename($0)} path/to/*.changes"
+end
+
+require 'yaml'
+require 'fileutils'
+require 'octokit'
+
+CONFIG_FILE = File.expand_path('~/.deb-release')
+APTLY_SERVER = '...'
+APTLY_REPO = 'your-repo-name'
+APTLY_PUBLISH = %w(trusty s3:)
+GH_ORGANIZATION = 'debian'
+LOCAL_DIR = '/vagrant/packages'
+REMOTE_DIR = '.../packages'
+GHE_URL = 'https://...'
+
+def parse_debian_metafile(str)
+  if str.start_with?('-----BEGIN PGP SIGNED MESSAGE-----')
+    raw = str.match(/-----BEGIN PGP SIGNED MESSAGE-----\n.+?\n\n(.+)-----BEGIN PGP SIGNATURE-----/m)[1]
+  else
+    raw = str
+  end
+
+  raw.each_line.
+    map(&:chomp).
+    reject(&:empty?).
+    slice_before { |_| _[0] != ' ' }.
+    map { |_| key, val = _.first.split(': ', 2); [key.sub(/: ?\z/,''), [val.empty? ? nil : val, *_[1..-1].map{ |_| _.sub(/^ /, '') }].compact] }.
+    to_h
+end
+
+config = File.exist?(CONFIG_FILE) ? YAML.load_file(CONFIG_FILE) : {}
+octo = Octokit::Client.new(access_token: config['github_token'], api_endpoint: "#{GHE_URL}/api/v3/", web_endpoint: GHE_URL)
+
+unless config['github_token']
+  print "Tell me your GHE access token: "
+  config['github_token'] = $stdin.gets.chomp
+  File.write CONFIG_FILE, config.to_yaml
+end
+
+Dir.chdir(File.dirname(File.expand_path(ARGV[0])))
+
+changes = File.read(ARGV[0])
+change_fields = parse_debian_metafile(changes)
+
+package_name = change_fields['Source'][0]
+version = change_fields['Version'][0]
+repo = "#{GH_ORGANIZATION}/#{package_name}"
+tag = "debian/#{version.gsub(?:,?%)}"
+dir = "#{package_name}_#{version.split(/:/,2).last}"
+files = change_fields['Files'].map { |_| _.split.last }
+
+dsc_file = files.find{|_| _.end_with?('.dsc') }
+dsc = File.read(dsc_file)
+dsc_fields = parse_debian_metafile(dsc)
+
+files += dsc_fields['Files'].map { |_| _.split.last }
+files.uniq!
+
+local_dir = File.join(LOCAL_DIR, dir)
+
+puts "=> Releasing the following package:"
+puts
+puts " #{package_name} #{version}"
+puts
+puts " * git tag: #{tag}"
+puts " * files: #{files.join(', ')}"
+puts
+
+puts "=> Copying to #{local_dir}"
+
+unless File.exist?(local_dir)
+  FileUtils.mkdir_p(local_dir, verbose: true)
+end
+
+files.each do |file|
+  FileUtils.cp(file, File.join(local_dir, file), verbose: true)
+end
+
+puts "=> Releasing to GHE #{repo}"
+
+release = octo.create_release(repo, tag, body: ['### Changes', '', '```', changes, '```', '', '### dsc', '', '```', dsc, '```'].join("\n"))
+
+puts " * release: #{release[:url]}"
+
+files.each do |file|
+  content_type = {
+    'deb'     => 'application/vnd.debian.binary-package',
+    'changes' => 'text/plain',
+    'dsc'     => 'text/plain',
+  }[file.split(?.).last]
+
+  asset = octo.upload_asset(release.url, file, content_type: content_type)
+  puts " * asset: #{asset.name} #{asset.browser_download_url}"
+end
+
+puts "=> Uploading to #{APTLY_SERVER}"
+
+remote_dir = File.join(REMOTE_DIR, dir)
+
+puts " * mkdir"
+ret = system "ssh", APTLY_SERVER, "mkdir", "-p", remote_dir
+exit $?.exitstatus || 128 unless ret
+
+puts " * scp"
+system "scp", *files, "#{APTLY_SERVER}:#{remote_dir}/"
+exit $?.exitstatus || 128 unless ret
+
+puts "=> Adding to aptly"
+
+system "ssh", "-t", APTLY_SERVER, *%w(aptly repo add), APTLY_REPO, remote_dir
+exit $?.exitstatus || 128 unless ret
+
+puts "=> Publish repository"
+
+system "ssh", "-t", APTLY_SERVER, *%w(aptly publish update), *APTLY_UPDATE
+exit $?.exitstatus || 128 unless ret
