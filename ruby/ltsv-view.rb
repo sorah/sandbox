@@ -197,6 +197,7 @@ module Renderers
       if elem[:space]
         padding_size = elem[:space] - elem[:width]
         if padding_size < 1
+          # FIXME: destructive
           elem[:value] = elem[:value][0..padding_size-2]
           PADDING
         else
