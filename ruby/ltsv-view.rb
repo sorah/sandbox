@@ -60,14 +60,17 @@ module Renderers
     UNDERLINE = "\e[4m"
     BLINK = "\e[5m"
 
-    def initialize(color, width, fields)
+    def initialize(color, width, fields, log)
       @color = !!color
       @width = width
-      @fields = fields.dup
+      @fields = fields
+      @log = log
     end
 
-    def render(log)
-      elements = @fields.map do |k|
+    attr_reader :color, :width, :fields, :log
+
+    def elements
+      @elements ||= @fields.map do |k|
         v = log[k]
         next unless v
 
@@ -80,68 +83,82 @@ module Renderers
 
         elem
       end.compact
+    end
 
-      if @width
-        space = @width - elements.map { |_| _[:key].to_s.size.succ }.inject(:+)
+    def allocate_spaces
+      return unless @width
+
+      # Remaining space
+      space = @width 
+
+      # "keyA:keyB:keyC:".size
+      key_and_colons_width = elements.map { |_| _[:key].to_s.size.succ }.inject(:+)
+      space -= key_and_colons_width
+
+      # Guarantee min_width + 1 width padding
+      elements.each do |elem|
+        space -= elem[:min_width].succ
+        elem[:space] = elem[:min_width].succ
+      end
+
+      prev_space = nil
+      while 0 < space && prev_space != space
+        prev_space = space
 
         elements.each do |elem|
-          space -= elem[:min_width] + 1
-          elem[:space] = elem[:min_width] + 1
-        end
+          allocated = space / elements.size
+          space += elem[:space]
 
-        prev_space = nil
-        while space > 0 && prev_space != space
-          prev_space = space
-          elements.each do |elem|
-            allocated = space / elements.size
-            space += elem[:space]
-            case
-            when elem[:fit]
-              elem[:space] = elem[:space] + allocated
-            when elem[:max_width] == -1
-              elem[:space] = elem[:width] + allocated
-            when elem[:max_width] && allocated > elem[:max_width].succ
-              elem[:space] = elem[:max_width].succ
-            else
-              elem[:space] = elem[:min_width] + (allocated / 2)
-            end
-            space -= elem[:space]
-            break if space <= 0
+          case
+          when elem[:fit]
+            # Grow existing allocated space, using newly allocated space
+            elem[:space] = elem[:space] + allocated
+          when elem[:max_width] == -1
+            # Ignores space allocation
+            # Grow to value width by one step
+            elem[:space] = elem[:width] + allocated
+          when elem[:max_width] && allocated > elem[:max_width].succ
+            # stop growing if reached to max_width
+            elem[:space] = elem[:max_width].succ
+          else
+            # Use only (allocated space / 2)
+            # May shrink at later step
+            elem[:space] = elem[:min_width] + (allocated / 2)
           end
-        end
 
-        if space > 0
-          fit_elements = elements.select { |_| _[:fit] }
-          unless fit_elements.empty?
-            if space % fit_elements.size == 0
-              allocated = space / fit_elements.size
-              fit_elements.each do |elem|
-                elem[:space] += allocated
-                space -= allocated
-              end
-            else
-              while space > 0
-                fit_elements.reverse_each do |elem|
-                  elem[:space] += 1
-                  space -= 1
-                  break if space <= 0
-                end
+          space -= elem[:space]
+          break if space <= 0
+        end
+      end
+
+      if space > 0
+        # When space is still remaining, allocate to fit=true elements
+        fit_elements = elements.select { |_| _[:fit] }
+        unless fit_elements.empty?
+          if space % fit_elements.size == 0
+            allocated = space / fit_elements.size
+            fit_elements.each do |elem|
+              elem[:space] += allocated
+              space -= allocated
+            end
+          else
+            while space > 0
+              fit_elements.reverse_each do |elem|
+                elem[:space] += 1
+                space -= 1
+                break if space <= 0
               end
             end
           end
         end
       end
+    end
+
+    def render
+      allocate_spaces
 
       components = elements.map do |elem|
-        if elem[:space]
-          padding_size = elem[:space] - elem[:width]
-          if padding_size < 1
-            elem[:value] = elem[:value][0..padding_size-2]
-            padding = ' '
-          else
-            padding = ' ' * padding_size
-          end
-        end
+        padding = make_padding(elem)
 
         if @color
           bg = elem[:bg] ? "\e[#{BG_COLORS[elem[:bg]] || elem[:bg]}m" : nil
@@ -170,6 +187,24 @@ module Renderers
         key: k,
         value: v,
       }
+    end
+
+    private
+
+    PADDING = ' '.freeze
+
+    def make_padding(elem)
+      if elem[:space]
+        padding_size = elem[:space] - elem[:width]
+        if padding_size < 1
+          elem[:value] = elem[:value][0..padding_size-2]
+          PADDING
+        else
+          PADDING * padding_size
+        end
+      else
+        nil
+      end
     end
   end
 
@@ -296,14 +331,14 @@ class CLI
   end
 
   def renderer
-    @renderer ||= Renderers.const_get(options[:renderer_name].gsub(/(?:\A|_)./) { |_| _[-1].upcase }).new(options[:color], options[:width], options[:fields])
+    @renderer ||= Renderers.const_get(options[:renderer_name].gsub(/(?:\A|_)./) { |_| _[-1].upcase })
   end
 
   def run
     ARGF.readlines.each do |line|
       log = LTSV.parse(line)
 
-      puts renderer.render(log)#.gsub(/\e\[\d+?m/,'')
+      puts renderer.new(options[:color], options[:width], options[:fields], log).render #.gsub(/\e\[\d+?m/,'')
     end
   end
 end
