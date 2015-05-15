@@ -92,7 +92,7 @@ module Renderers
       space = @width 
 
       # "keyA:keyB:keyC:".size
-      key_and_colons_width = elements.map { |_| _[:key].to_s.size.succ }.inject(:+)
+      key_and_colons_width = elements.map { |_| _[:key].to_s.size.succ }.inject(:+) || 0
       space -= key_and_colons_width
 
       # Guarantee min_width + 1 width padding
