@@ -336,7 +336,7 @@ class CLI
   end
 
   def run
-    ARGF.readlines.each do |line|
+    while line = ARGF.gets
       log = LTSV.parse(line)
 
       puts renderer.new(options[:color], options[:width], options[:fields], log).render #.gsub(/\e\[\d+?m/,'')
