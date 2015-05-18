@@ -159,7 +159,7 @@ module Renderers
       allocate_spaces
 
       components = elements.map do |elem|
-        padding = make_padding(elem)
+        value, padding = make_padding(elem)
 
         if @color
           bg = elem[:bg] ? "\e[#{BG_COLORS[elem[:bg]] || elem[:bg]}m" : nil
@@ -168,9 +168,9 @@ module Renderers
           underline = elem[:underline] ? UNDERLINE : nil
           blink = elem[:blink] ? BLINK : nil
 
-          "#{bg}#{BOLD}#{elem[:key]}:#{RESET}#{bg}#{fg}#{bold}#{underline}#{blink}#{elem[:value]}#{padding}"
+          "#{bg}#{BOLD}#{elem[:key]}:#{RESET}#{bg}#{fg}#{bold}#{underline}#{blink}#{value}#{padding}"
         else
-          "#{elem[:key]}:#{elem[:value]}#{padding}"
+          "#{elem[:key]}:#{value}#{padding}"
         end
       end
 
@@ -196,14 +196,12 @@ module Renderers
       if elem[:space]
         padding_size = elem[:space] - elem[:width]
         if padding_size < 1
-          # FIXME: destructive
-          elem[:value] = elem[:value][0..padding_size-2]
-          PADDING
+          [elem[:value][0..padding_size-2], PADDING]
         else
-          PADDING * padding_size
+          [elem[:value], PADDING * padding_size]
         end
       else
-        nil
+        [elem[:value], nil]
       end
     end
   end
