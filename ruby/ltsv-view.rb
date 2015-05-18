@@ -315,8 +315,8 @@ end
 class CLI
   MODES = {
     short: %i(time status reqtime method uri),
-    normal: %i(time status reqtime method uri),
-    long: %i(time status reqtime runtime method uri host server_name),
+    normal: %i(time status reqtime method uri forwardedfor),
+    long: %i(time status reqtime runtime method uri host forwardedfor),
     longer: %i(time status reqtime runtime method uri host server_name ua),
   }
 
