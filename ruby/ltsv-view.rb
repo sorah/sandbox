@@ -7,8 +7,8 @@ module LTSV
   def self.parse(line)
     Hash[
       line.chomp.split(/\t/).map { |_|
-        k, v = _.split(/:/, 2)
-        k && v && !k.empty? && !v.empty? ? [k.to_sym, v] : nil
+        l, v = _.split(/:/, 2)
+        l && v && !l.empty? && !v.empty? ? [l.to_sym, v] : nil
       }.compact
     ]
   end
@@ -74,7 +74,7 @@ module Renderers
     # TODO: Classify elements
     #
     # Current schema of element is:
-    #   key: key
+    #   label: label
     #   value: value
     #   width: value width
     #   min_width: minimum width for value that guaranteed for display.
@@ -86,12 +86,12 @@ module Renderers
     #   blink: show value with blinked or not (boolean)
     #   space: reserved width to show value
     def elements
-      @elements ||= @fields.map do |k|
-        v = log[k]
+      @elements ||= @fields.map do |l|
+        v = log[l]
         next unless v
 
-        meth = "render_#{k}"
-        elem = respond_to?(meth) ? __send__(meth, v) : default(k, v)
+        meth = "render_#{l}"
+        elem = respond_to?(meth) ? __send__(meth, v) : default(l, v)
 
         elem[:value] = elem[:value].to_s
         elem[:width] = elem[:value].size
@@ -112,13 +112,13 @@ module Renderers
 
       # for debug purpose
       dump_elements_space = proc do
-        p Hash[elements.map {|elem| [elem[:key], elem[:key].to_s.size.succ + elem[:space]] }]
-        puts elements.map {|elem| "#{elem[:key]}:#{'X' * elem[:space]}" }.join(?|)
+        p Hash[elements.map {|elem| [elem[:label], elem[:label].to_s.size.succ + elem[:space]] }]
+        puts elements.map {|elem| "#{elem[:label]}:#{'X' * elem[:space]}" }.join(?|)
       end
 
-      # "keyA:keyB:keyC:".size
-      key_and_colons_width = elements.map { |_| _[:key].to_s.size.succ }.inject(0, :+)
-      space -= key_and_colons_width
+      # "labelA:labelB:labelC:".size
+      label_and_colons_width = elements.map { |_| _[:label].to_s.size.succ }.inject(0, :+)
+      space -= label_and_colons_width
 
       # padding between elements
       space -= elements.size - 1
@@ -190,16 +190,16 @@ module Renderers
           underline = elem[:underline] ? UNDERLINE : nil
           blink = elem[:blink] ? BLINK : nil
 
-          "#{bg}#{BOLD}#{elem[:key]}:#{RESET}#{bg}#{fg}#{bold}#{underline}#{blink}#{value}#{padding}"
+          "#{bg}#{BOLD}#{elem[:label]}:#{RESET}#{bg}#{fg}#{bold}#{underline}#{blink}#{value}#{padding}"
         else
-          "#{elem[:key]}:#{value}#{padding}"
+          "#{elem[:label]}:#{value}#{padding}"
         end
       end
 
       components.join("#{@width ? PADDING : ?\t}#{@color ? RESET : nil}")
     end
 
-    def default(k, v)
+    def default(l, v)
       {
         bg: nil,
         fg: nil,
@@ -207,7 +207,7 @@ module Renderers
         dark: false,
         underline: false,
         blink: false,
-        key: k,
+        label: l,
         value: v,
       }
     end
@@ -232,7 +232,7 @@ module Renderers
     def render_time(v)
       t = Time.parse(v).strftime('%m/%d %H:%M:%S') rescue nil
       {
-        key: :time,
+        label: :time,
         value: t || v,
         min_width: (t || v).size,
         max_width: (t || v).size,
@@ -242,14 +242,14 @@ module Renderers
 
     def render_method(v)
       {
-        key: :method,
+        label: :method,
         value: v,
         min_width: 5,
         fg: v != 'GET' ? :magenta : nil,
       }
     end
 
-    def render_elapsed_times(k, v)
+    def render_elapsed_times(l, v)
       f = v.to_f
       fg = case
            when f > 1
@@ -261,7 +261,7 @@ module Renderers
            end
       bold = f > 1.5
       {
-        key: k,
+        label: l,
         value: v,
         min_width: 4,
         max_width: 4,
@@ -297,7 +297,7 @@ module Renderers
       end
 
       {
-        key: :status,
+        label: :status,
         value: v,
         bg: bg,
         min_width: 3,
@@ -307,7 +307,7 @@ module Renderers
 
     def render_uri(v)
       {
-        key: :uri,
+        label: :uri,
         value: v,
         min_width: 30,
         fit: true,
@@ -316,7 +316,7 @@ module Renderers
 
     def render_host(v)
       {
-        key: :host,
+        label: :host,
         value: v,
         min_width: 15,
         max_width: 15,
@@ -325,7 +325,7 @@ module Renderers
 
     def render_forwardedfor(v)
       {
-        key: :forwardedfor,
+        label: :forwardedfor,
         value: v,
         min_width: 15,
         max_width: 15,
@@ -334,7 +334,7 @@ module Renderers
 
     def render_ua(v)
       {
-        key: :ua,
+        label: :ua,
         value: v,
         fit: true,
         min_width: 10,
