@@ -325,7 +325,7 @@ class CLI
       width: $stdout.tty? ? $stdout.winsize[1] : nil,
       color: $stdout.tty?,
       fields: MODES[:nginx_normal],
-      renderer_name: 'nginx',
+      renderer: 'nginx',
       sigwinch: true,
     }
     parse_options!
@@ -339,6 +339,10 @@ class CLI
 
       opts.on("-c", "--[no-]color", "Run verbosely") do |v|
         options[:color] = v
+      end
+
+      opts.on("-r RENDERER", "--renderer RENDERER", "Set renderer (default=nginx; #{Renderers.constants(false).inspect}") do |v|
+        options[:renderer] = v
       end
 
       opts.on("-m MODE", "--mode MODE", "Show predefined fields set (short, normal, long; default=normal)") do |v|
@@ -368,7 +372,7 @@ class CLI
   end
 
   def renderer
-    @renderer ||= Renderers.const_get(options[:renderer_name].gsub(/(?:\A|_)./) { |_| _[-1].upcase })
+    @renderer ||= Renderers.const_get(options[:renderer].gsub(/(?:\A|_)./) { |_| _[-1].upcase })
   end
 
   def run
