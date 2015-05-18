@@ -291,6 +291,24 @@ module Renderers
         fit: true,
       }
     end
+
+    def render_host(v)
+      {
+        key: :host,
+        value: v,
+        min_width: 15,
+        max_width: 15,
+      }
+    end
+
+    def render_forwardedfor(v)
+      {
+        key: :forwardedfor,
+        value: v,
+        min_width: 15,
+        max_width: 15,
+      }
+    end
   end
 end
 
