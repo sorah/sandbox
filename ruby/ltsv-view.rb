@@ -227,7 +227,7 @@ module Renderers
       }
     end
 
-    def render_reqtime(v)
+    def render_elapsed_times(k, v)
       f = v.to_f
       fg = case
            when f > 1
@@ -239,12 +239,24 @@ module Renderers
            end
       bold = f > 1.5
       {
-        key: :reqtime,
+        key: k,
         value: v,
         min_width: 6,
         bold: bold,
         fg: fg,
       }
+    end
+
+    def render_reqtime(v)
+      render_elapsed_times :reqtime, v
+    end
+
+    def render_runtime(v)
+      render_elapsed_times :runtime, v
+    end
+
+    def render_apptime(v)
+      render_elapsed_times :apptime, v
     end
 
     def render_status(v)
