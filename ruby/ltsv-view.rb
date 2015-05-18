@@ -80,26 +80,38 @@ module Renderers
 
         elem[:value] = elem[:value].to_s
         elem[:width] = elem[:value].size
-        elem[:min_width] ||= elem[:width]
+        elem[:min_width] ||= 1
 
         elem
       end.compact
     end
 
+    # Allocate width for each element (label:value pair).
+    # space for "#{label}:" part and at least 1 width padding is guaranteed.
+    # element.space is reserved width for stringified value.
     def allocate_spaces
       return unless @width
 
       # Remaining space
       space = @width
 
+      # for debug purpose
+      dump_elements_space = proc do
+        p Hash[elements.map {|elem| [elem[:key], elem[:key].to_s.size.succ + elem[:space]] }]
+        puts elements.map {|elem| "#{elem[:key]}:#{'X' * elem[:space]}" }.join(?|)
+      end
+
       # "keyA:keyB:keyC:".size
-      key_and_colons_width = elements.map { |_| _[:key].to_s.size.succ }.inject(:+) || 0
+      key_and_colons_width = elements.map { |_| _[:key].to_s.size.succ }.inject(0, :+)
       space -= key_and_colons_width
 
-      # Guarantee min_width + 1 width padding
+      # padding between elements
+      space -= elements.size - 1
+
+      # Guarantee min_width
       elements.each do |elem|
-        space -= elem[:min_width].succ
-        elem[:space] = elem[:min_width].succ
+        space -= elem[:min_width]
+        elem[:space] = elem[:min_width]
       end
 
       prev_space = nil
@@ -114,21 +126,16 @@ module Renderers
           when elem[:fit]
             # Grow existing allocated space, using newly allocated space
             elem[:space] = elem[:space] + allocated
-          when elem[:max_width] == -1
-            # Ignores space allocation
-            # Grow to value width by one step
-            elem[:space] = elem[:width] + [1, allocated].max
-          when elem[:max_width] && allocated > elem[:max_width].succ
+          when elem[:max_width] && allocated > elem[:max_width]
             # stop growing if reached to max_width
-            elem[:space] = elem[:max_width].succ
-          else
-            # Use only (allocated space / 2)
-            # May shrink at later step
-            elem[:space] = elem[:min_width] + [1, (allocated / 2)].max
+            elem[:space] = elem[:max_width]
+          when elem[:space] < elem[:width]
+            # Grow slowly until element reachs its value width
+            elem[:space] = [elem[:width], elem[:space] + (allocated / 2)].min
           end
 
           space -= elem[:space]
-          break if space <= 0
+          break unless 0 < space
         end
       end
 
@@ -174,7 +181,7 @@ module Renderers
         end
       end
 
-      components.join("#{@width ? nil : ?\t}#{@color ? RESET : nil}")
+      components.join("#{@width ? PADDING : ?\t}#{@color ? RESET : nil}")
     end
 
     def default(k, v)
@@ -195,8 +202,8 @@ module Renderers
     def make_padding(elem)
       if elem[:space]
         padding_size = elem[:space] - elem[:width]
-        if padding_size < 1
-          [elem[:value][0..padding_size-2], PADDING]
+        if padding_size < 0
+          [elem[:value][0, elem[:space]], nil]
         else
           [elem[:value], PADDING * padding_size]
         end
@@ -241,8 +248,8 @@ module Renderers
       {
         key: k,
         value: v,
-        min_width: 5,
-        max_width: 6,
+        min_width: 4,
+        max_width: 4,
         bold: bold,
         fg: fg,
       }
