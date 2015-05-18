@@ -314,17 +314,17 @@ end
 
 class CLI
   MODES = {
-    short: %i(time status reqtime method uri),
-    normal: %i(time status reqtime method uri forwardedfor),
-    long: %i(time status reqtime runtime method uri host forwardedfor),
-    longer: %i(time status reqtime runtime method uri host server_name ua),
+    nginx_short: %i(time status reqtime method uri),
+    nginx_normal: %i(time status reqtime method uri forwardedfor),
+    nginx_long: %i(time status reqtime runtime method uri host forwardedfor),
+    nginx_longer: %i(time status reqtime runtime method uri host server_name ua),
   }
 
   def initialize
     @options = {
       width: $stdout.tty? ? $stdout.winsize[1] : nil,
       color: $stdout.tty?,
-      fields: MODES[:normal],
+      fields: MODES[:nginx_normal],
       renderer_name: 'nginx',
       sigwinch: true,
     }
