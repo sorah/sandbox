@@ -241,7 +241,8 @@ module Renderers
       {
         key: k,
         value: v,
-        min_width: 6,
+        min_width: 5,
+        max_width: 6,
         bold: bold,
         fg: fg,
       }
