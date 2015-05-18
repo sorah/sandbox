@@ -140,7 +140,7 @@ module Renderers
           space += elem[:space]
 
           case
-          when elem[:fit]
+          when elem[:fit] && elem[:space] < elem[:width]
             # Grow existing allocated space, using newly allocated space
             elem[:space] = elem[:space] + allocated
           when elem[:max_width] && allocated > elem[:max_width]
