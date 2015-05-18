@@ -331,6 +331,15 @@ module Renderers
         max_width: 15,
       }
     end
+
+    def render_ua(v)
+      {
+        key: :ua,
+        value: v,
+        fit: true,
+        min_width: 10,
+      }
+    end
   end
 end
 
@@ -357,7 +366,7 @@ class CLI
 
   def parse_options!
     OptionParser.new do |opts|
-      opts.banner = "Usage: format-ltsv-access-log [options]"
+      opts.banner = "Usage: #{$0} [options]"
 
       opts.on("-c", "--[no-]color", "Run verbosely") do |v|
         options[:color] = v
@@ -367,8 +376,9 @@ class CLI
         options[:renderer] = v
       end
 
+
       opts.on("-m MODE", "--mode MODE", "Show predefined fields set (default=nginx_normal; #{MODES.keys.map(&:to_s).join(?,)})") do |v|
-        options[:fields] = MODES[v.to_sym] or raise "unknown predefiend fields"
+        options[:fields] = (MODES[v.to_sym] || MODES[:"#{options[:renderer]}_#{v}"]) or raise "unknown predefiend fields"
       end
 
       opts.on("-f FIELDS", "--fields FIELDS", "Fields (separated by comma); overrides --mode") do |v|
