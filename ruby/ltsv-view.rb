@@ -389,4 +389,8 @@ class CLI
   end
 end
 
+Dir['/usr/share/ltsv-view/plugins/*.rb'].each do |x|
+  require x
+end
+
 CLI.new.run
