@@ -117,14 +117,14 @@ module Renderers
           when elem[:max_width] == -1
             # Ignores space allocation
             # Grow to value width by one step
-            elem[:space] = elem[:width] + allocated
+            elem[:space] = elem[:width] + [1, allocated].max
           when elem[:max_width] && allocated > elem[:max_width].succ
             # stop growing if reached to max_width
             elem[:space] = elem[:max_width].succ
           else
             # Use only (allocated space / 2)
             # May shrink at later step
-            elem[:space] = elem[:min_width] + (allocated / 2)
+            elem[:space] = elem[:min_width] + [1, (allocated / 2)].max
           end
 
           space -= elem[:space]
