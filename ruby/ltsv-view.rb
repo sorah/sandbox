@@ -70,6 +70,21 @@ module Renderers
 
     attr_reader :color, :width, :fields, :log
 
+    # Returns array of Hash. each Hash represents an element.
+    # TODO: Classify elements
+    #
+    # Current schema of element is:
+    #   key: key
+    #   value: value
+    #   width: value width
+    #   min_width: minimum width for value that guaranteed for display.
+    #   max_width: maximum width for value to display.
+    #   fg: foreground color name or ANSI code
+    #   bg: background color name or ANSI code
+    #   bold: show value with bold or not (boolean)
+    #   underline: show value with underline or not (boolean)
+    #   blink: show value with blinked or not (boolean)
+    #   space: reserved width to show value
     def elements
       @elements ||= @fields.map do |k|
         v = log[k]
