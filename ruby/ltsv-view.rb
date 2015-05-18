@@ -345,7 +345,7 @@ class CLI
         options[:renderer] = v
       end
 
-      opts.on("-m MODE", "--mode MODE", "Show predefined fields set (short, normal, long; default=normal)") do |v|
+      opts.on("-m MODE", "--mode MODE", "Show predefined fields set (default=nginx_normal; #{MODES.keys.map(&:to_s).join(?,)})") do |v|
         options[:fields] = MODES[v.to_sym] or raise "unknown predefiend fields"
       end
 
