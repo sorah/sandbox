@@ -326,6 +326,7 @@ class CLI
       color: $stdout.tty?,
       fields: MODES[:normal],
       renderer_name: 'nginx',
+      sigwinch: true,
     }
     parse_options!
   end
@@ -350,11 +351,18 @@ class CLI
 
       opts.on("-w WIDTH", "--width WIDTH", "specify width, 0 to disable") do |v|
         options[:width] = v.to_i
-        options[:width] = nil if options[:width].zero?
+        if options[:width].zero?
+          options[:width] = nil
+          options[:sigwinch] = false
+        end
       end
 
       opts.on("--no-width", "disable -w, --width") do |v|
         options[:width] = nil
+      end
+
+      opts.on("--sigwinch", "--[no-]sigwinch", "Use terminal winsize for width and response to sigwinch (default: enabled)") do |v|
+        options[:sigwinch] = v
       end
     end.parse!
   end
@@ -364,6 +372,11 @@ class CLI
   end
 
   def run
+    if options[:sigwinch] && $stdout.tty?
+      trap(:WINCH) do
+        options[:width] = $stdout.winsize[1]
+      end
+    end
     while line = ARGF.gets
       log = LTSV.parse(line)
 
