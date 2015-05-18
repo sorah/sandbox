@@ -90,7 +90,7 @@ module Renderers
       return unless @width
 
       # Remaining space
-      space = @width 
+      space = @width
 
       # "keyA:keyB:keyC:".size
       key_and_colons_width = elements.map { |_| _[:key].to_s.size.succ }.inject(:+) || 0
