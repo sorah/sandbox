@@ -183,7 +183,7 @@ module Renderers
       allocate_spaces
 
       components = elements.map do |elem|
-        value, padding = make_padding(elem)
+        value, padding = put_value_in_space(elem)
 
         if @color
           bg = elem[:bg] ? "\e[#{BG_COLORS[elem[:bg]] || elem[:bg]}m" : nil
@@ -216,7 +216,10 @@ module Renderers
 
     private
 
-    def make_padding(elem)
+    # Put element's value in its space.
+    # if allocated space remains, this method returns additional padding string.
+    # if allocated space is smallar than value width, this method returns sliced value string and no padding.
+    def put_value_in_space(elem)
       if elem[:space]
         padding_size = elem[:space] - elem[:width]
         if padding_size < 0
