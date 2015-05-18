@@ -16,8 +16,6 @@ end
 
 module Renderers
   class Base
-    RESET = "\e[0m"
-
     BG_COLORS = {
       black:   40,
       red:     41,
@@ -56,9 +54,12 @@ module Renderers
       bright_white:    97,
     }
 
+    RESET = "\e[0m"
     BOLD = "\e[1m"
     UNDERLINE = "\e[4m"
     BLINK = "\e[5m"
+
+    PADDING = ' '.freeze
 
     def initialize(color, width, fields, log)
       @color = !!color
@@ -190,8 +191,6 @@ module Renderers
     end
 
     private
-
-    PADDING = ' '.freeze
 
     def make_padding(elem)
       if elem[:space]
