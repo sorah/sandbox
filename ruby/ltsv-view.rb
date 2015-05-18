@@ -104,6 +104,8 @@ module Renderers
     # Allocate width for each element (label:value pair).
     # space for "#{label}:" part and at least 1 width padding is guaranteed.
     # element.space is reserved width for stringified value.
+    #
+    # Purpose of allocating space is to fit elements in one line, and to have enough space as possible on each elements.
     def allocate_spaces
       return unless @width
 
