@@ -141,15 +141,14 @@ module Renderers
 
           case
           when elem[:fit] && elem[:space] < elem[:width]
-            # Grow existing allocated space, using newly allocated space
+            # grow existing allocated space, using newly allocated space
             elem[:space] = elem[:space] + allocated
-          when elem[:max_width] && allocated > elem[:max_width]
-            # stop growing if reached to max_width
-            elem[:space] = elem[:max_width]
           when elem[:space] < elem[:width]
-            # Grow slowly until element reachs its value width
+            # grow slowly until element reachs its value width
             elem[:space] = [elem[:width], elem[:space] + (allocated / 2)].min
           end
+
+          elem[:space] = elem[:max_width] if elem[:max_width] && elem[:space] > elem[:max_width]
 
           space -= elem[:space]
           break unless 0 < space
