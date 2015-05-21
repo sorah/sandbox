@@ -386,7 +386,7 @@ class CLI
       end
 
       opts.on("-f FIELDS", "--fields FIELDS", "Fields (separated by comma); overrides --mode") do |v|
-        options[:fields] = v.split(/,\s+|\s+/)
+        options[:fields] = v.split(/,\s*|\s+/).map(&:to_sym)
       end
 
       opts.on("-w WIDTH", "--width WIDTH", "specify width, 0 to disable") do |v|
