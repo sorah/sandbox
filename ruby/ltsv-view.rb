@@ -14,6 +14,164 @@ module LTSV
   end
 end
 
+# not thread safe
+class CycleArray
+  def initialize(size)
+    @array = []
+    @limit_size = size
+  end
+
+  attr_reader :array
+
+  def push(o)
+    @array << o
+    if @limit_size < @array.size
+      @array.shift(@array.size-@limit_size)
+    end
+  end
+end
+
+class SpaceAllocator
+  class Field
+    def initialize(label:, min_space: 1, max_space: nil, fit: false)
+      @label = label
+      @min_space = min_space
+      @max_space = max_space
+      @fit = fit
+      @length_history = CycleArray.new(100)
+    end
+
+    def fit?; @fit; end
+
+    def label_size
+      @label_size ||= label.to_s.size
+    end
+
+    def record_length(len)
+      length_history.push len
+      self
+    end
+
+    def average_length
+      (length_history.array.inject(&:+) || 0) / length_history.array.size
+    end
+
+    attr_accessor :space
+    attr_reader :label, :min_space, :max_space, :length_history
+  end
+
+  def initialize(fields, width, populate_interval)
+    @fields = fields.map do |x|
+      Field.new(**x)
+    end
+
+    @width = width
+
+    @populate_interval = populate_interval
+    @populate_count = 0
+  end
+
+  attr_reader :fields
+
+  attr_reader :width
+
+  def width=(o)
+    @populate_count = 0
+    @width = o
+  end
+
+  def record_length(column, len)
+    @fields[column].record_length len
+  end
+
+  def spaces
+    populate_if_necessary!
+    @fields.map { |f| [f.label, f.space] }.to_h
+  end
+
+  def populate_if_necessary!
+    populate! if @populate_count.zero?
+    @populate_count = @populate_count.succ % @populate_interval
+  end
+
+    # Allocate width for each element (label:value pair).
+    # space for "#{label}:" part and at least 1 width padding is guaranteed.
+    # element.space is reserved width for stringified value.
+    #
+    # Purpose of allocating space is to fit elements in one line, and to have enough space as possible on each elements.
+
+  def populate!
+    # Remaining space
+    space = @width
+
+    # for debug purpose
+    dump_space = proc do
+      p fields.map {|f| [f.label, f.label_size.succ + f.space] }.to_h
+      puts fields.map {|elem| "#{elem.label}:#{'X' * elem.space}" }.join(?|)
+    end
+
+    # "labelA:labelB:labelC:".size
+    label_and_colons_width = fields.map { |_| _.label_size.succ }.inject(0, :+)
+    space -= label_and_colons_width
+
+    # padding between elements
+    space -= fields.size - 1
+
+    # Guarantee min_space
+    fields.each do |field|
+      space -= field.min_space
+      field.space = field.min_space
+    end
+
+    prev_space = nil
+    while 0 < space && prev_space != space
+      prev_space = space
+
+      fields.each do |field|
+        allocated = space / fields.size
+        space += field.space
+
+        case
+        when field.fit? && field.space < field.average_length
+          # grow existing allocated space, using newly allocated space
+          field.space = field.space + allocated
+        when field.space < field.average_length
+          # grow slowly until element reachs its value width
+          field.space = [field.average_length, field.space + (allocated / 2)].min
+        end
+
+        field.space = field.max_space if field.max_space && field.space > field.max_space
+
+        space -= field.space
+        break unless 0 < space
+      end
+    end
+
+    if space > 0
+      # When space is still remaining, allocate to fit=true elements
+      fit_fields = fields.select(&:fit?)
+
+      unless fit_fields.empty?
+        if space % fit_fields.size == 0
+          allocated = space / fit_fields.size
+          fit_fields.each do |field|
+            field.space += allocated
+            space -= allocated
+          end
+        else
+          while space > 0
+            fit_fields.reverse_each do |field|
+              field.space += 1
+              space -= 1
+              break if space <= 0
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
 module Renderers
   class Base
     BG_COLORS = {
@@ -61,14 +219,13 @@ module Renderers
 
     PADDING = ' '.freeze
 
-    def initialize(color, width, fields, log)
+    def initialize(color, space_allocator, log)
       @color = !!color
-      @width = width
-      @fields = fields
+      @space_allocator = space_allocator
       @log = log
     end
 
-    attr_reader :color, :width, :fields, :log
+    attr_reader :color, :log
 
     # Returns array of Hash. each Hash represents an element.
     # TODO: Classify elements
@@ -77,8 +234,8 @@ module Renderers
     #   label: label
     #   value: value
     #   width: value width
-    #   min_width: minimum width for value that guaranteed for display.
-    #   max_width: maximum width for value to display.
+    #   min_space: minimum width for value that guaranteed for display.
+    #   max_space: maximum width for value to display.
     #   fg: foreground color name or ANSI code
     #   bg: background color name or ANSI code
     #   bold: show value with bold or not (boolean)
@@ -86,103 +243,30 @@ module Renderers
     #   blink: show value with blinked or not (boolean)
     #   space: reserved width to show value
     def elements
-      @elements ||= @fields.map do |l|
-        v = log[l]
+      @elements ||= @space_allocator.fields.map do |f|
+        v = log[f.label]
         next unless v
 
-        meth = "render_#{l}"
-        elem = respond_to?(meth) ? __send__(meth, v) : default(l, v)
+        meth = "render_#{f.label}"
+        elem = respond_to?(meth) ? __send__(meth, v) : default(f.label, v)
 
+        elem[:label] = f.label
         elem[:value] = elem[:value].to_s
         elem[:width] = elem[:value].size
-        elem[:min_width] ||= 1
+
+        f.record_length elem[:value].size
 
         elem
       end.compact
     end
 
-    # Allocate width for each element (label:value pair).
-    # space for "#{label}:" part and at least 1 width padding is guaranteed.
-    # element.space is reserved width for stringified value.
-    #
-    # Purpose of allocating space is to fit elements in one line, and to have enough space as possible on each elements.
-    def allocate_spaces
-      return unless @width
-
-      # Remaining space
-      space = @width
-
-      # for debug purpose
-      dump_elements_space = proc do
-        p Hash[elements.map {|elem| [elem[:label], elem[:label].to_s.size.succ + elem[:space]] }]
-        puts elements.map {|elem| "#{elem[:label]}:#{'X' * elem[:space]}" }.join(?|)
-      end
-
-      # "labelA:labelB:labelC:".size
-      label_and_colons_width = elements.map { |_| _[:label].to_s.size.succ }.inject(0, :+)
-      space -= label_and_colons_width
-
-      # padding between elements
-      space -= elements.size - 1
-
-      # Guarantee min_width
-      elements.each do |elem|
-        space -= elem[:min_width]
-        elem[:space] = elem[:min_width]
-      end
-
-      prev_space = nil
-      while 0 < space && prev_space != space
-        prev_space = space
-
-        elements.each do |elem|
-          allocated = space / elements.size
-          space += elem[:space]
-
-          case
-          when elem[:fit] && elem[:space] < elem[:width]
-            # grow existing allocated space, using newly allocated space
-            elem[:space] = elem[:space] + allocated
-          when elem[:space] < elem[:width]
-            # grow slowly until element reachs its value width
-            elem[:space] = [elem[:width], elem[:space] + (allocated / 2)].min
-          end
-
-          elem[:space] = elem[:max_width] if elem[:max_width] && elem[:space] > elem[:max_width]
-
-          space -= elem[:space]
-          break unless 0 < space
-        end
-      end
-
-      if space > 0
-        # When space is still remaining, allocate to fit=true elements
-        fit_elements = elements.select { |_| _[:fit] }
-        unless fit_elements.empty?
-          if space % fit_elements.size == 0
-            allocated = space / fit_elements.size
-            fit_elements.each do |elem|
-              elem[:space] += allocated
-              space -= allocated
-            end
-          else
-            while space > 0
-              fit_elements.reverse_each do |elem|
-                elem[:space] += 1
-                space -= 1
-                break if space <= 0
-              end
-            end
-          end
-        end
-      end
+    def spaces
+      @spaces ||= @space_allocator.spaces
     end
 
     def render
-      allocate_spaces
-
       components = elements.map do |elem|
-        value, padding = put_value_in_space(elem)
+        value, padding = put_value_in_space(elem, spaces[elem[:label]])
 
         if @color
           bg = elem[:bg] ? "\e[#{BG_COLORS[elem[:bg]] || elem[:bg]}m" : nil
@@ -197,7 +281,7 @@ module Renderers
         end
       end
 
-      components.join("#{@width ? PADDING : ?\t}#{@color ? RESET : nil}")
+      components.join("#{@space_allocator.width ? PADDING : ?\t}#{@color ? RESET : nil}")
     end
 
     def default(l, v)
@@ -218,11 +302,11 @@ module Renderers
     # Put element's value in its space.
     # if allocated space remains, this method returns additional padding string.
     # if allocated space is smallar than value width, this method returns sliced value string and no padding.
-    def put_value_in_space(elem)
-      if elem[:space]
-        padding_size = elem[:space] - elem[:width]
+    def put_value_in_space(elem, space)
+      if space
+        padding_size = space - elem[:width]
         if padding_size < 0
-          [elem[:value][0, elem[:space]], nil]
+          [elem[:value][0, space], nil]
         else
           [elem[:value], PADDING * padding_size]
         end
@@ -233,14 +317,25 @@ module Renderers
   end
 
   class Nginx < Base
+    def self.field_time
+      {
+        min_space: '%m/%d %H:%M:%S'.size,
+        max_space: '%m/%d %H:%M:%S'.size,
+      }
+    end
+
     def render_time(v)
       t = Time.parse(v).strftime('%m/%d %H:%M:%S') rescue nil
       {
         label: :time,
         value: t || v,
-        min_width: (t || v).size,
-        max_width: (t || v).size,
         fg: :bright_black,
+      }
+    end
+
+    def self.field_method
+      {
+        min_space: 5,
       }
     end
 
@@ -248,8 +343,15 @@ module Renderers
       {
         label: :method,
         value: v,
-        min_width: 5,
         fg: v != 'GET' ? :magenta : nil,
+      }
+    end
+
+    def self.field_elapsed_times
+      {
+        min_space: 5,
+        max_space: 5,
+
       }
     end
 
@@ -267,12 +369,14 @@ module Renderers
       {
         label: l,
         value: v,
-        min_width: 4,
-        max_width: 4,
         bold: bold,
         fg: fg,
       }
     end
+
+    def self.field_reqtime; field_elapsed_times; end
+    def self.field_runtime; field_elapsed_times; end
+    def self.field_apptime; field_elapsed_times; end
 
     def render_reqtime(v)
       render_elapsed_times :reqtime, v
@@ -284,6 +388,13 @@ module Renderers
 
     def render_apptime(v)
       render_elapsed_times :apptime, v
+    end
+
+    def self.field_status
+      {
+        min_space: 3,
+        max_space: 3,
+      }
     end
 
     def render_status(v)
@@ -304,8 +415,12 @@ module Renderers
         label: :status,
         value: v,
         bg: bg,
-        min_width: 3,
-        max_width: 3,
+      }
+    end
+
+    def self.field_uri
+      {
+        min_space: 30,
       }
     end
 
@@ -313,17 +428,29 @@ module Renderers
       {
         label: :uri,
         value: v,
-        min_width: 30,
         fit: true,
       }
     end
+
+    def self.field_host
+      {
+        min_space: 15,
+        max_space: 15,
+      }
+    end
+
 
     def render_host(v)
       {
         label: :host,
         value: v,
-        min_width: 15,
-        max_width: 15,
+      }
+    end
+
+    def self.field_forwardedfor
+      {
+        min_space: 15,
+        max_space: 15,
       }
     end
 
@@ -331,8 +458,13 @@ module Renderers
       {
         label: :forwardedfor,
         value: v,
-        min_width: 15,
-        max_width: 15,
+      }
+    end
+
+    def self.field_ua
+      {
+        fit: true,
+        min_space: 10,
       }
     end
 
@@ -340,8 +472,6 @@ module Renderers
       {
         label: :ua,
         value: v,
-        fit: true,
-        min_width: 10,
       }
     end
   end
@@ -411,16 +541,37 @@ class CLI
     @renderer ||= Renderers.const_get(options[:renderer].gsub(/(?:\A|_)./) { |_| _[-1].upcase })
   end
 
+  def fields
+    @fields ||= options[:fields].map do |f|
+      meth = :"field_#{f}"
+      renderer.respond_to?(meth) ? renderer.__send__(meth).merge(label: f) : {label: f}
+    end
+  end
+  def space_allocator
+    @space_allocator ||= SpaceAllocator.new(fields, options[:width], 10)
+  end
+
   def run
     if options[:sigwinch] && $stdout.tty?
       trap(:WINCH) do
-        options[:width] = $stdout.winsize[1]
+        space_allocator.width = $stdout.winsize[1]
       end
     end
+
     while line = ARGF.gets
       log = LTSV.parse(line)
 
-      puts renderer.new(options[:color], options[:width], options[:fields], log).render #.gsub(/\e\[\d+?m/,'')
+      puts renderer.new(options[:color], space_allocator, log).render #.gsub(/\e\[\d+?m/,'')
+    end
+  end
+
+  if ENV['STACKPROF']
+    require 'stackprof'
+    alias run_orig run
+    def run
+      StackProf.run(mode: :cpu, out: '/tmp/ltsv-view.stackprof', &method(:run_orig))
+    ensure
+      StackProf.results('/tmp/ltsv-view.stackprof')
     end
   end
 end
