@@ -120,13 +120,13 @@ def convert_zone(domain, zone):
                 new_rdata = dns.rdata.from_text(1, rdata.rdtype, rdata.to_text())
 
                 if rdataset.rdtype == dns.rdatatype.CNAME:
-                    new_rdata.target = dns.name.from_text(adjust_node_name(zone.origin, domain, str(new_rdata.target.derelativize(zone.origin))), origin=new_zone.origin).relativize(new_zone.origin)
+                    new_rdata.target = dns.name.from_text(adjust_node_name(zone.origin, domain, str(new_rdata.target.derelativize(zone.origin))), origin=new_zone.origin)
                 elif rdataset.rdtype == dns.rdatatype.MX:
-                    new_rdata.exchange = dns.name.from_text(adjust_node_name(zone.origin, domain, str(new_rdata.exchange.derelativize(zone.origin))), origin=new_zone.origin).relativize(new_zone.origin)
+                    new_rdata.exchange = dns.name.from_text(adjust_node_name(zone.origin, domain, str(new_rdata.exchange.derelativize(zone.origin))), origin=new_zone.origin)
                 elif rdataset.rdtype == dns.rdatatype.NS:
-                    new_rdata.target = dns.name.from_text(adjust_node_name(zone.origin, domain, str(new_rdata.target.derelativize(zone.origin))), origin=new_zone.origin).relativize(new_zone.origin)
+                    new_rdata.target = dns.name.from_text(adjust_node_name(zone.origin, domain, str(new_rdata.target.derelativize(zone.origin))), origin=new_zone.origin)
                 elif rdataset.rdtype == dns.rdatatype.SRV:
-                    new_rdata.target = dns.name.from_text(adjust_node_name(zone.origin, domain, str(new_rdata.target.derelativize(zone.origin))), origin=new_zone.origin).relativize(new_zone.origin)
+                    new_rdata.target = dns.name.from_text(adjust_node_name(zone.origin, domain, str(new_rdata.target.derelativize(zone.origin))), origin=new_zone.origin)
 
                 new_rdataset.add(new_rdata, ttl=rdataset.ttl)
     return new_zone
