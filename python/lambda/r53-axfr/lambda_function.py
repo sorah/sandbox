@@ -247,18 +247,21 @@ def lambda_handler(event, context):
     # Read the zone from Route 53 via API and populate into zone object
     print 'Getting records from Route 53'
     vpc_zone = dns.zone.Zone(origin=route53_zone_name)
-    vpc_recordset = route53.list_resource_record_sets(HostedZoneId=route53_zone_id)['ResourceRecordSets']
-    for record in vpc_recordset:
-        # Change the record name so that it doesn't have the domain name appended
-        recordname = record['Name'].replace(route53_zone_name.rstrip('.') + '.', '')
-        if recordname == '':
-            recordname = "@"
-        else:
-            recordname = recordname.rstrip('.')
-        rdataset = vpc_zone.find_rdataset(recordname, rdtype=str(record['Type']), create=True)
-        for value in record['ResourceRecords']:
-            rdata = dns.rdata.from_text(1, rdataset.rdtype, value['Value'])
-            rdataset.add(rdata, ttl=int(record['TTL']))
+    # vpc_recordset = route53.list_resource_record_sets(HostedZoneId=route53_zone_id)['ResourceRecordSets']
+    paginator = route53.get_paginator('list_resource_record_sets').paginate(HostedZoneId=route53_zone_id)
+    for page in paginator:
+        vpc_recordset = page['ResourceRecordSets']
+        for record in vpc_recordset:
+            # Change the record name so that it doesn't have the domain name appended
+            recordname = record['Name'].replace(route53_zone_name.rstrip('.') + '.', '')
+            if recordname == '':
+                recordname = "@"
+            else:
+                recordname = recordname.rstrip('.')
+            rdataset = vpc_zone.find_rdataset(recordname, rdtype=str(record['Type']), create=True)
+            for value in record['ResourceRecords']:
+                rdata = dns.rdata.from_text(1, rdataset.rdtype, value['Value'])
+                rdataset.add(rdata, ttl=int(record['TTL']))
 
     soa = master_zone.get_rdataset('@', 'SOA')
     serial = soa[0].serial  # What's the current zone version on-prem
