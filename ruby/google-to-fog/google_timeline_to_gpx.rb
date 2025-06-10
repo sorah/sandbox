@@ -172,13 +172,13 @@ class GoogleTimelineToGPX
 
     # Create a track segment with start and end points
     track_points = [
-      TrackPoint.new(
+      GPXUtils::TrackPoint.new(
         lat: start_coords[:lat],
         lon: start_coords[:lon],
         time: start_time,
         name: "Start: #{activity.dig('topCandidate', 'type') || 'Unknown'}"
       ),
-      TrackPoint.new(
+      GPXUtils::TrackPoint.new(
         lat: end_coords[:lat],
         lon: end_coords[:lon],
         time: end_time,
@@ -186,7 +186,7 @@ class GoogleTimelineToGPX
       )
     ]
 
-    @tracks << Track.new(
+    @tracks << GPXUtils::Track.new(
       name: "#{activity.dig('topCandidate', 'type') || 'Activity'} - #{start_time}",
       points: track_points
     )
@@ -201,7 +201,7 @@ class GoogleTimelineToGPX
     coords = parse_geo_coords(location)
     return unless coords
 
-    @waypoints << Waypoint.new(
+    @waypoints << GPXUtils::Waypoint.new(
       lat: coords[:lat],
       lon: coords[:lon],
       time: parse_time(data.fetch('startTime')),
@@ -225,7 +225,7 @@ class GoogleTimelineToGPX
       offset_minutes = point.fetch('durationMinutesOffsetFromStartTime').to_f
       point_time = start_time + (offset_minutes * 60)
 
-      track_points << TrackPoint.new(
+      track_points << GPXUtils::TrackPoint.new(
         lat: coords[:lat],
         lon: coords[:lon],
         time: point_time,
@@ -234,7 +234,7 @@ class GoogleTimelineToGPX
     end
 
     unless track_points.empty?
-      @tracks << Track.new(
+      @tracks << GPXUtils::Track.new(
         name: "Path - #{start_time}",
         points: track_points
       )
@@ -258,50 +258,13 @@ class GoogleTimelineToGPX
   end
 
   def generate_gpx
-    doc = REXML::Document.new
-    doc.add_element('gpx', {
-      'version' => '1.1',
-      'creator' => 'Google Timeline to GPX Converter',
-      'xmlns' => 'http://www.topografix.com/GPX/1/1',
-      'xmlns:xsi' => 'http://www.w3.org/2001/XMLSchema-instance',
-      'xsi:schemaLocation' => 'http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd'
-    })
-
-    gpx = doc.root
-
-    # Add waypoints
-    @waypoints.each do |waypoint|
-      wpt = gpx.add_element('wpt', {
-        'lat' => waypoint.lat.to_s,
-        'lon' => waypoint.lon.to_s
-      })
-      wpt.add_element('time').text = waypoint.time.iso8601 if waypoint.time
-      wpt.add_element('name').text = waypoint.name if waypoint.name
-      wpt.add_element('desc').text = waypoint.desc if waypoint.desc
-    end
-    
-    # Add tracks
-    unless @tracks.empty?
-      trk = gpx.add_element('trk')
-      trk.add_element('name').text = 'Google Timeline Track'
-
-      # Sort tracks by time and merge into segments
-      @tracks.sort_by { |t| t.points.first.time || Time.now }.each do |track|
-        trkseg = trk.add_element('trkseg')
-
-        track.points.each do |point|
-          trkpt = trkseg.add_element('trkpt', {
-            'lat' => point.lat.to_s,
-            'lon' => point.lon.to_s
-          })
-          trkpt.add_element('time').text = point.time.iso8601 if point.time
-          trkpt.add_element('name').text = point.name if point.name
-        end
-      end
-    end
-
-    # Write to output stream
-    doc.write(@output_io, 2)
+    GPXUtils.generate_gpx(
+      tracks: @tracks,
+      waypoints: @waypoints,
+      creator: 'Google Timeline to GPX Converter',
+      track_name: 'Google Timeline Track',
+      output_io: @output_io
+    )
   end
 end
 
