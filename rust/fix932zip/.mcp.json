@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "docs-rs": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@nuskey8/docs-rs-mcp@1.0.1"
+      ],
+      "env": {}
+    }
+  }
+}
